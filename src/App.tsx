@@ -3,507 +3,357 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Trophy, Clock, Target, Info, ChevronRight, Play, Zap, Award, Sparkles, AlertCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Heart } from 'lucide-react';
 
-// --- Types ---
+// --- Constants & Assets ---
 
-interface Color {
-  h: number;
+const ASSETS = {
+  player: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMzIgNEwyMCAyOEwzMiAyMkw0NCAyOEwzMiA0WiIgZmlsbD0iIzBlYTVlOSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PHBhdGggZD0iTTMyIDIyTDI0IDQwSDQwTzMyIDIyWiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xOCA0MkwxMCA1MEwyMCA0OEwxOCA0MlpNNDYgNDJMNjAgNTBMODEgNDhMNDYgNDJaIiBmaWxsPSIjMjc2YWY1Ii8+PC9zdmc+',
+  enemy: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMzIgNjBMMjAgMzZMMzIgNDJMMTQgMzZMMzIgNjBaIiBmaWxsPSIjZjg3MTcxIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiLz48cGF0aCBkPSJNMzIgNDJMMjQgMjRINDBMMzIgNDJaIiBmaWxsPSIjZmJiZjI0Ii8+PHBhdGggZD0iTTE4IDIyTDEwIDE0TDIwIDE2TDE4IDIyWk00NiAyMkw2MCAxNEw4MCAxNkw0NiAyMloiIGZpbGw9IiNjMDg0ZmMiLz48L3N2Zz4='
+};
+
+interface Star {
+  x: number;
+  y: number;
   s: number;
-  l: number;
 }
 
-interface GameState {
-  score: number;
-  combo: number;
-  maxCombo: number;
-  startTime: number | null;
-  elapsedTime: number;
-  isPlaying: boolean;
-  isGameOver: boolean;
-  gridSize: number;
-  rank: string;
+interface Bullet {
+  x: number;
+  y: number;
 }
 
-// --- Constants ---
+class Player {
+  x: number;
+  y: number;
+  w: number = 60;
+  h: number = 60;
+  speed: number = 8;
+  invincibility: number = 0;
 
-const INITIAL_GRID_SIZE = 4; // 从较小的网格开始，方便上手
-const MAX_GRID_SIZE = 9;
-const INITIAL_DELTA = 18; // 初始难度略低
-const MIN_DELTA = 1.2;    // 大师级的极小色差
-
-const RANKS = [
-  { threshold: 0, title: "色彩萌新", description: "刚刚开始探索光谱的奥秘。" },
-  { threshold: 10, title: "色调学徒", description: "正在培养对细节的敏锐洞察力。" },
-  { threshold: 20, title: "色彩侦察员", description: "你的视觉已经开始变得专业化。" },
-  { threshold: 35, title: "棱镜大师", description: "对光影和色彩有着卓越的敏感度。" },
-  { threshold: 50, title: "光谱圣贤", description: "你能看见他人无法想象的色彩。" },
-  { threshold: 70, title: "视觉艺术家", description: "已达到完美的色觉感知境界。" },
-];
-
-// --- Utils ---
-
-const generateRandomColor = (): Color => ({
-  h: Math.floor(Math.random() * 360),
-  s: 30 + Math.floor(Math.random() * 50), // 30-80% 饱和度
-  l: 35 + Math.floor(Math.random() * 40), // 35-75% 亮度
-});
-
-const colorToCss = (color: Color, alpha: number = 1) => 
-  `hsla(${color.h}, ${color.s}%, ${color.l}%, ${alpha})`;
-
-const getTargetColor = (base: Color, delta: number): Color => {
-  const type = Math.random();
-  const shift = Math.random() > 0.5 ? delta : -delta;
-
-  if (type < 0.33) {
-    return { ...base, h: (base.h + shift * 2 + 360) % 360 };
-  } else if (type < 0.66) {
-    return { ...base, s: Math.max(0, Math.min(100, base.s + shift)) };
-  } else {
-    return { ...base, l: Math.max(0, Math.min(100, base.l + shift)) };
+  constructor(canvasWidth: number, canvasHeight: number) {
+    this.x = canvasWidth / 2;
+    this.y = canvasHeight - 120;
   }
-};
 
-const getRank = (score: number) => {
-  return [...RANKS].reverse().find(r => score >= r.threshold) || RANKS[0];
-};
+  update(keys: Record<string, boolean>, canvasWidth: number, canvasHeight: number) {
+    if (keys['w'] || keys['ArrowUp']) this.y -= this.speed;
+    if (keys['s'] || keys['ArrowDown']) this.y += this.speed;
+    if (keys['a'] || keys['ArrowLeft']) this.x -= this.speed;
+    if (keys['d'] || keys['ArrowRight']) this.x += this.speed;
+    
+    this.x = Math.max(30, Math.min(canvasWidth - 30, this.x));
+    this.y = Math.max(30, Math.min(canvasHeight - 30, this.y));
+    
+    if (this.invincibility > 0) this.invincibility--;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, playerImg: HTMLImageElement) {
+    if (this.invincibility % 6 > 3) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    // 引擎火光
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath(); 
+    ctx.moveTo(-8, 25); 
+    ctx.lineTo(0, 25 + Math.random() * 15); 
+    ctx.lineTo(8, 25); 
+    ctx.fill();
+    // 绘制主机
+    ctx.drawImage(playerImg, -this.w / 2, -this.h / 2, this.w, this.h);
+    ctx.restore();
+  }
+}
+
+class Enemy {
+  x: number;
+  y: number;
+  w: number = 50;
+  h: number = 50;
+  speed: number;
+
+  constructor(canvasWidth: number, level: number) {
+    this.x = Math.random() * (canvasWidth - 60) + 30;
+    this.y = -60;
+    this.speed = 3 + Math.random() * 2 + level * 0.5;
+  }
+
+  update() {
+    this.y += this.speed;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, enemyImg: HTMLImageElement) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.drawImage(enemyImg, -this.w / 2, -this.h / 2, this.w, this.h);
+    ctx.restore();
+  }
+}
 
 export default function App() {
-  const [gameState, setGameState] = useState<GameState>({
-    score: 0,
-    combo: 0,
-    maxCombo: 0,
-    startTime: null,
-    elapsedTime: 0,
-    isPlaying: false,
-    isGameOver: false,
-    gridSize: INITIAL_GRID_SIZE,
-    rank: RANKS[0].title,
-  });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [gameActive, setGameActive] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [level, setLevel] = useState(1);
 
-  const [colors, setColors] = useState<{ base: Color; target: Color; targetIndex: number } | null>(null);
-  const [lastDiff, setLastDiff] = useState<{ base: Color; target: Color; correct: boolean } | null>(null);
-  const [feedback, setFeedback] = useState<{ x: number; y: number; type: 'correct' | 'wrong' } | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for game objects to avoid re-renders during loop
+  const playerRef = useRef<Player | null>(null);
+  const enemiesRef = useRef<Enemy[]>([]);
+  const bulletsRef = useRef<Bullet[]>([]);
+  const starsRef = useRef<Star[]>([]);
+  const keysRef = useRef<Record<string, boolean>>({});
+  const lastShootTimeRef = useRef(0);
+  const imagesRef = useRef<Record<string, HTMLImageElement>>({});
 
-  const startNewRound = useCallback(() => {
-    const base = generateRandomColor();
-    // 根据得分调整难度曲线
-    const currentDelta = Math.max(MIN_DELTA, INITIAL_DELTA - (gameState.score * 0.35));
-    const target = getTargetColor(base, currentDelta);
-    const targetIndex = Math.floor(Math.random() * (gameState.gridSize * gameState.gridSize));
+  // Initialize images
+  useEffect(() => {
+    Object.entries(ASSETS).forEach(([key, src]) => {
+      const img = new Image();
+      img.src = src;
+      imagesRef.current[key] = img;
+    });
+  }, []);
 
-    setColors({ base, target, targetIndex });
-  }, [gameState.score, gameState.gridSize]);
+  const handleResize = useCallback(() => {
+    if (canvasRef.current) {
+      canvasRef.current.width = window.innerWidth;
+      canvasRef.current.height = window.innerHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [handleResize]);
 
   const startGame = () => {
-    setGameState({
-      score: 0,
-      combo: 0,
-      maxCombo: 0,
-      startTime: Date.now(),
-      elapsedTime: 0,
-      isPlaying: true,
-      isGameOver: false,
-      gridSize: INITIAL_GRID_SIZE,
-      rank: RANKS[0].title,
-    });
-    setLastDiff(null);
+    setScore(0);
+    setLives(3);
+    setLevel(1);
+    setIsGameOver(false);
+    setGameActive(true);
+    
+    const canvas = canvasRef.current;
+    if (canvas) {
+      playerRef.current = new Player(canvas.width, canvas.height);
+    }
+    enemiesRef.current = [];
+    bulletsRef.current = [];
+    lastShootTimeRef.current = 0;
   };
 
-  const stopGame = () => {
-    setGameState(prev => ({ ...prev, isPlaying: false, isGameOver: true }));
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
+  const gameOver = useCallback(() => {
+    setGameActive(false);
+    setIsGameOver(true);
+  }, []);
 
-  const handleBlockClick = (index: number, e: React.MouseEvent) => {
-    if (!gameState.isPlaying || !colors) return;
+  // Game Loop
+  useEffect(() => {
+    let animationFrameId: number;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (index === colors.targetIndex) {
-      // 正确！
-      setFeedback({ x: e.clientX, y: e.clientY, type: 'correct' });
-      setLastDiff({ base: colors.base, target: colors.target, correct: true });
+      // Stars background
+      if (starsRef.current.length < 100) {
+        starsRef.current.push({
+          x: Math.random() * canvas.width,
+          y: -10,
+          s: Math.random() * 2 + 1
+        });
+      }
       
-      setGameState(prev => {
-        const newScore = prev.score + 1 + Math.floor(prev.combo / 5); // 连击奖励
-        const newCombo = prev.combo + 1;
-        const newMaxCombo = Math.max(prev.maxCombo, newCombo);
-        
-        // 动态网格缩放
-        let newGridSize = prev.gridSize;
-        if (newScore === 5) newGridSize = 5;
-        if (newScore === 15) newGridSize = 6;
-        if (newScore === 30) newGridSize = 7;
-        if (newScore === 50) newGridSize = 8;
-
-        return {
-          ...prev,
-          score: newScore,
-          combo: newCombo,
-          maxCombo: newMaxCombo,
-          gridSize: newGridSize,
-          rank: getRank(newScore).title
-        };
+      ctx.fillStyle = "#fff";
+      starsRef.current.forEach((s, i) => {
+        s.y += s.s;
+        ctx.fillRect(s.x, s.y, s.s, s.s);
+        if (s.y > canvas.height) starsRef.current.splice(i, 1);
       });
-      
-      // 自动清除反馈
-      setTimeout(() => setFeedback(null), 500);
-    } else {
-      // 错误！
-      setFeedback({ x: e.clientX, y: e.clientY, type: 'wrong' });
-      setLastDiff({ base: colors.base, target: colors.target, correct: false });
-      setTimeout(() => {
-        setFeedback(null);
-        stopGame();
-      }, 400);
+
+      if (gameActive && playerRef.current) {
+        const player = playerRef.current;
+        const keys = keysRef.current;
+
+        // Update & Draw Player
+        player.update(keys, canvas.width, canvas.height);
+        if (imagesRef.current.player) {
+          player.draw(ctx, imagesRef.current.player);
+        }
+
+        // Shooting logic
+        if (keys[' '] || keys['isTouch']) {
+          const now = Date.now();
+          if (now - lastShootTimeRef.current > 150) {
+            bulletsRef.current.push({ x: player.x, y: player.y - 30 });
+            lastShootTimeRef.current = now;
+          }
+        }
+
+        // Bullets
+        bulletsRef.current.forEach((b, i) => {
+          b.y -= 12;
+          ctx.fillStyle = "#38bdf8";
+          ctx.fillRect(b.x - 2, b.y, 4, 15);
+          
+          if (b.y < 0) {
+            bulletsRef.current.splice(i, 1);
+            return;
+          }
+          
+          enemiesRef.current.forEach((e, ei) => {
+            if (Math.hypot(b.x - e.x, b.y - e.y) < 25) {
+              setScore(prev => prev + 100);
+              bulletsRef.current.splice(i, 1);
+              enemiesRef.current.splice(ei, 1);
+            }
+          });
+        });
+
+        // Enemy Spawning
+        if (Math.random() < 0.02 + level * 0.01) {
+          enemiesRef.current.push(new Enemy(canvas.width, level));
+        }
+
+        // Enemies
+        enemiesRef.current.forEach((e, i) => {
+          e.update();
+          if (imagesRef.current.enemy) {
+            e.draw(ctx, imagesRef.current.enemy);
+          }
+          
+          if (e.y > canvas.height) {
+            enemiesRef.current.splice(i, 1);
+            return;
+          }
+
+          // Collision detection
+          if (player.invincibility <= 0 && Math.hypot(e.x - player.x, e.y - player.y) < 40) {
+            setLives(prev => {
+              const next = prev - 1;
+              if (next <= 0) {
+                gameOver();
+              }
+              return next;
+            });
+            player.invincibility = 100;
+            enemiesRef.current.splice(i, 1);
+          }
+        });
+
+        // Level up logic
+        setLevel(Math.floor(score / 2000) + 1);
+      }
+
+      animationFrameId = requestAnimationFrame(loop);
+    };
+
+    loop();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameActive, level, score, gameOver]);
+
+  // Event Listeners
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { keysRef.current[e.key] = true; };
+    const handleKeyUp = (e: KeyboardEvent) => { keysRef.current[e.key] = false; };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    keysRef.current['isTouch'] = true;
+    const t = e.touches[0];
+    if (playerRef.current) {
+      playerRef.current.x = t.clientX;
+      playerRef.current.y = t.clientY - 60;
     }
   };
 
-  // 计时器逻辑
-  useEffect(() => {
-    if (gameState.isPlaying) {
-      timerRef.current = setInterval(() => {
-        setGameState(prev => ({
-          ...prev,
-          elapsedTime: prev.startTime ? (Date.now() - prev.startTime) / 1000 : 0
-        }));
-      }, 100);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (playerRef.current) {
+      playerRef.current.x = t.clientX;
+      playerRef.current.y = t.clientY - 60;
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [gameState.isPlaying]);
+  };
 
-  // 回合初始化
-  useEffect(() => {
-    if (gameState.isPlaying) {
-      startNewRound();
-    }
-  }, [gameState.score, gameState.isPlaying, startNewRound]);
-
-  const currentRank = getRank(gameState.score);
+  const handleTouchEnd = () => {
+    keysRef.current['isTouch'] = false;
+  };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#F5F5F0] overflow-x-hidden">
-      {/* 动态背景光晕 */}
-      <AnimatePresence>
-        {colors && gameState.isPlaying && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.05 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 pointer-events-none z-0"
-            style={{ backgroundColor: colorToCss(colors.base) }}
-          />
-        )}
-      </AnimatePresence>
+    <div className="relative w-full h-screen overflow-hidden bg-[#020617] font-['Orbitron',_sans-serif] text-slate-200 select-none touch-none">
+      <canvas 
+        ref={canvasRef} 
+        className="absolute top-0 left-0 w-full h-full block"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
 
-      {/* 页眉 */}
-      <header className="relative z-10 max-w-5xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-6 border-b border-[#141414]/10">
-        <div className="flex flex-col items-center md:items-start">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-serif italic tracking-tight leading-none">色感挑战</h1>
-            <div className="px-2 py-1 bg-[#141414] text-[#F5F5F0] text-[8px] font-mono uppercase tracking-widest rounded">专业版</div>
+      {/* HUD */}
+      {gameActive && (
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-start pointer-events-none">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-4 rounded-2xl">
+            <div className="text-[10px] text-sky-400 font-bold uppercase tracking-widest">Score</div>
+            <div className="text-3xl font-bold tabular-nums">{score}</div>
           </div>
-          <p className="text-[10px] uppercase tracking-[0.3em] font-mono opacity-40 mt-3">艺术视觉敏感度评估</p>
+          <div className="flex gap-2 text-rose-500 text-2xl pt-2">
+            {Array.from({ length: lives }).map((_, i) => (
+              <Heart key={i} fill="currentColor" size={24} />
+            ))}
+          </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-10">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] uppercase tracking-widest font-mono opacity-40 mb-1 flex items-center gap-1">
-              <Trophy size={10} /> 得分
-            </span>
-            <motion.span 
-              key={gameState.score}
-              initial={{ scale: 1.2, color: "#5A5A40" }}
-              animate={{ scale: 1, color: "#141414" }}
-              className="text-3xl font-mono font-medium"
+      {/* Start Screen */}
+      {!gameActive && !isGameOver && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
+          <div className="bg-white/5 backdrop-blur-md border border-white/20 p-12 rounded-[2.5rem] text-center max-w-sm w-full">
+            <h1 className="text-6xl font-black mb-2 bg-gradient-to-b from-white to-sky-500 bg-clip-text text-transparent italic tracking-tighter">JACK</h1>
+            <p className="text-sky-300 tracking-[0.4em] mb-10 text-xs font-bold uppercase">星际先锋</p>
+            <button 
+              onClick={startGame}
+              className="px-12 py-4 bg-sky-600 hover:bg-sky-500 rounded-full font-bold transition-all shadow-lg shadow-sky-500/25 active:scale-95"
             >
-              {gameState.score}
-            </motion.span>
+              启动引擎
+            </button>
           </div>
-          
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] uppercase tracking-widest font-mono opacity-40 mb-1 flex items-center gap-1">
-              <Zap size={10} /> 连击
-            </span>
-            <motion.span 
-              key={gameState.combo}
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              className={`text-3xl font-mono font-medium ${gameState.combo > 5 ? 'text-orange-600' : ''}`}
+        </div>
+      )}
+
+      {/* Game Over Overlay */}
+      {isGameOver && (
+        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 p-10 rounded-[3rem] text-center max-w-sm w-full mx-4">
+            <h2 className="text-4xl font-black mb-6 tracking-tight">GAME OVER</h2>
+            <div className="text-5xl font-bold text-sky-400 mb-8 tabular-nums">{score}</div>
+            <button 
+              onClick={startGame}
+              className="w-full py-4 bg-white text-slate-950 rounded-2xl font-black hover:bg-sky-400 transition-colors active:scale-95"
             >
-              x{gameState.combo}
-            </motion.span>
-          </div>
-
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] uppercase tracking-widest font-mono opacity-40 mb-1 flex items-center gap-1">
-              <Clock size={10} /> 用时
-            </span>
-            <span className="text-3xl font-mono font-medium">{gameState.elapsedTime.toFixed(1)}s</span>
+              再来一次
+            </button>
           </div>
         </div>
-      </header>
+      )}
 
-      <main className="relative z-10 max-w-5xl mx-auto px-6 py-12 flex flex-col items-center">
-        {!gameState.isPlaying && !gameState.isGameOver ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center max-w-xl"
-          >
-            <div className="mb-12 p-10 border border-[#141414] rounded-[2.5rem] bg-white shadow-[12px_12px_0px_0px_rgba(20,20,20,1)] relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Sparkles size={120} />
-              </div>
-              
-              <Award className="mx-auto mb-6 text-[#5A5A40]" size={48} />
-              <h2 className="text-3xl font-serif italic mb-6">大师级视觉训练</h2>
-              <p className="text-base leading-relaxed opacity-60 mb-10 max-w-md mx-auto">
-                专为艺术家和设计师打造的专业挑战。
-                训练你的眼睛检测可见光谱中最细微的变化。
-              </p>
-              
-              <div className="grid grid-cols-2 gap-4 mb-10 text-left">
-                <div className="p-4 bg-[#F5F5F0] rounded-2xl">
-                  <h4 className="text-[10px] font-mono uppercase font-bold mb-1">高精度</h4>
-                  <p className="text-xs opacity-60">Delta-E 灵敏度训练，低至 1.2% 的色差。</p>
-                </div>
-                <div className="p-4 bg-[#F5F5F0] rounded-2xl">
-                  <h4 className="text-[10px] font-mono uppercase font-bold mb-1">自适应</h4>
-                  <p className="text-xs opacity-60">网格复杂度根据技能从 4x4 扩展至 9x9。</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={startGame}
-                className="group relative w-full py-5 bg-[#141414] text-[#F5F5F0] rounded-2xl flex items-center justify-center gap-3 overflow-hidden transition-all active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <Play size={20} fill="currentColor" className="relative z-10" />
-                <span className="relative z-10 uppercase tracking-[0.3em] text-xs font-bold">开始评估</span>
-              </button>
-            </div>
-            
-            <p className="text-[10px] font-mono opacity-30 uppercase tracking-widest">建议在校准过的显示器上进行</p>
-          </motion.div>
-        ) : (
-          <div className="w-full flex flex-col lg:flex-row items-start justify-center gap-12">
-            {/* 左侧：网格 */}
-            <div className="w-full max-w-[540px] flex flex-col items-center">
-              <div 
-                className="relative aspect-square w-full p-5 bg-white border border-[#141414]/10 rounded-[3rem] shadow-2xl"
-              >
-                <div 
-                  className="grid gap-2 h-full w-full"
-                  style={{ 
-                    gridTemplateColumns: `repeat(${gameState.gridSize}, 1fr)`,
-                    gridTemplateRows: `repeat(${gameState.gridSize}, 1fr)`
-                  }}
-                >
-                  {colors && Array.from({ length: gameState.gridSize * gameState.gridSize }).map((_, i) => (
-                    <motion.button
-                      key={i}
-                      whileHover={{ scale: 0.97, zIndex: 1 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={(e) => handleBlockClick(i, e)}
-                      className="w-full h-full rounded-xl transition-colors duration-200 shadow-sm"
-                      style={{ 
-                        backgroundColor: i === colors.targetIndex ? colorToCss(colors.target) : colorToCss(colors.base)
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* 反馈粒子 */}
-                <AnimatePresence>
-                  {feedback && (
-                    <motion.div 
-                      initial={{ scale: 0, opacity: 1 }}
-                      animate={{ scale: 2, opacity: 0 }}
-                      exit={{ opacity: 0 }}
-                      className={`fixed pointer-events-none z-50 w-12 h-12 rounded-full border-4 flex items-center justify-center ${feedback.type === 'correct' ? 'border-green-500' : 'border-red-500'}`}
-                      style={{ left: feedback.x - 24, top: feedback.y - 24 }}
-                    >
-                      {feedback.type === 'correct' ? <Sparkles className="text-green-500" /> : <AlertCircle className="text-red-500" />}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* 游戏结束覆盖层 */}
-                <AnimatePresence>
-                  {gameState.isGameOver && (
-                    <motion.div 
-                      initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
-                      animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
-                      className="absolute inset-0 z-20 flex items-center justify-center p-6 rounded-[3rem] overflow-hidden"
-                    >
-                      <div className="absolute inset-0 bg-[#141414]/90" />
-                      <motion.div 
-                        initial={{ y: 40, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        className="relative z-30 text-[#F5F5F0] w-full text-center"
-                      >
-                        <div className="mb-6 inline-flex p-4 bg-white/10 rounded-full">
-                          <Award size={48} className="text-orange-400" />
-                        </div>
-                        <h2 className="text-4xl font-serif italic mb-2">评估报告</h2>
-                        <div className="flex items-center justify-center gap-2 mb-8">
-                          <div className="h-[1px] w-8 bg-white/20"></div>
-                          <p className="text-[10px] opacity-60 font-mono uppercase tracking-[0.3em]">{currentRank.title}</p>
-                          <div className="h-[1px] w-8 bg-white/20"></div>
-                        </div>
-                        
-                        <div className="grid grid-cols-3 gap-3 mb-10">
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <p className="text-[8px] uppercase opacity-40 mb-1 font-mono">得分</p>
-                            <p className="text-2xl font-mono">{gameState.score}</p>
-                          </div>
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <p className="text-[8px] uppercase opacity-40 mb-1 font-mono">最高连击</p>
-                            <p className="text-2xl font-mono">{gameState.maxCombo}</p>
-                          </div>
-                          <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                            <p className="text-[8px] uppercase opacity-40 mb-1 font-mono">总用时</p>
-                            <p className="text-2xl font-mono">{gameState.elapsedTime.toFixed(0)}s</p>
-                          </div>
-                        </div>
-
-                        <button 
-                          onClick={startGame}
-                          className="w-full py-5 bg-[#F5F5F0] text-[#141414] rounded-2xl flex items-center justify-center gap-3 hover:bg-white transition-all active:scale-95 font-bold uppercase tracking-widest text-xs"
-                        >
-                          <RefreshCw size={18} />
-                          开启新会话
-                        </button>
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-              
-              <div className="mt-8 flex items-center gap-4 w-full">
-                <div className="flex-1 h-1 bg-[#141414]/5 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-[#141414]"
-                    animate={{ width: `${Math.min(100, (gameState.score / 70) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] font-mono opacity-40 uppercase tracking-widest">晋升至 {RANKS.find(r => r.threshold > gameState.score)?.title || "最高等级"} 的进度</span>
-              </div>
-            </div>
-
-            {/* 右侧：分析 */}
-            <div className="w-full lg:w-[380px] space-y-8">
-              {/* 头衔卡片 */}
-              <div className="bg-white p-8 rounded-[2rem] border border-[#141414]/5 shadow-sm relative overflow-hidden">
-                <div className="absolute -top-4 -right-4 opacity-[0.03]">
-                  <Trophy size={120} />
-                </div>
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 mb-4">当前头衔</h3>
-                <h4 className="text-2xl font-serif italic mb-2">{currentRank.title}</h4>
-                <p className="text-xs opacity-50 leading-relaxed">{currentRank.description}</p>
-              </div>
-
-              {/* 差异分析 */}
-              <div className="bg-white p-8 rounded-[2rem] border border-[#141414]/5 shadow-sm">
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 mb-6 flex items-center gap-2">
-                  <Target size={14} /> 色彩差异分析
-                </h3>
-                
-                {lastDiff ? (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex -space-x-6">
-                        <motion.div 
-                          key={`base-${gameState.score}`}
-                          initial={{ x: -20, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          className="w-20 h-20 rounded-full border-4 border-white shadow-xl z-10" 
-                          style={{ backgroundColor: colorToCss(lastDiff.base) }} 
-                        />
-                        <motion.div 
-                          key={`target-${gameState.score}`}
-                          initial={{ x: 20, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          className="w-20 h-20 rounded-full border-4 border-white shadow-xl" 
-                          style={{ backgroundColor: colorToCss(lastDiff.target) }} 
-                        />
-                      </div>
-                      <div className={`px-3 py-1 rounded-full text-[8px] font-mono uppercase tracking-widest ${lastDiff.correct ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {lastDiff.correct ? '捕捉成功' : '未能识别'}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-4 border-t border-[#141414]/5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-mono opacity-40 uppercase">色相偏移</span>
-                        <span className="text-xs font-mono font-bold">{Math.abs(lastDiff.base.h - lastDiff.target.h).toFixed(1)}°</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-mono opacity-40 uppercase">饱和度</span>
-                        <span className="text-xs font-mono font-bold">{Math.abs(lastDiff.base.s - lastDiff.target.s).toFixed(1)}%</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-mono opacity-40 uppercase">亮度</span>
-                        <span className="text-xs font-mono font-bold">{Math.abs(lastDiff.base.l - lastDiff.target.l).toFixed(1)}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-[#141414]/5 rounded-3xl">
-                    <p className="text-[10px] font-mono opacity-30 uppercase tracking-widest">等待数据捕获...</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 引擎参数 */}
-              <div className="bg-[#141414] text-[#F5F5F0] p-8 rounded-[2rem] shadow-xl">
-                <h3 className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] opacity-40 mb-6">引擎参数</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <span className="text-[9px] font-mono opacity-40 uppercase">当前精度 Delta</span>
-                    <span className="text-sm font-mono text-orange-400">
-                      {Math.max(MIN_DELTA, INITIAL_DELTA - (gameState.score * 0.35)).toFixed(2)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <span className="text-[9px] font-mono opacity-40 uppercase">网格密度</span>
-                    <span className="text-sm font-mono">{gameState.gridSize}x{gameState.gridSize}</span>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <span className="text-[9px] font-mono opacity-40 uppercase">调色模式</span>
-                    <span className="text-sm font-mono">HSL 自适应</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* 页脚 */}
-      <footer className="relative z-10 max-w-5xl mx-auto px-6 py-16 border-t border-[#141414]/10 flex flex-col md:flex-row justify-between items-center gap-8 opacity-30">
-        <div className="flex flex-col items-center md:items-start gap-2">
-          <p className="text-[10px] uppercase tracking-[0.4em] font-mono font-bold">色彩视觉实验室</p>
-          <p className="text-[8px] font-mono">标准化色彩敏感度评估系统 v1.2.4</p>
-        </div>
-        <div className="flex gap-10">
-          <a href="#" className="text-[9px] uppercase tracking-widest font-mono hover:opacity-100 transition-opacity border-b border-transparent hover:border-current">方法论</a>
-          <a href="#" className="text-[9px] uppercase tracking-widest font-mono hover:opacity-100 transition-opacity border-b border-transparent hover:border-current">校准指南</a>
-          <a href="#" className="text-[9px] uppercase tracking-widest font-mono hover:opacity-100 transition-opacity border-b border-transparent hover:border-current">隐私政策</a>
-        </div>
-      </footer>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+      `}</style>
     </div>
   );
 }

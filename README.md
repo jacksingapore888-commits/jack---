@@ -1,40 +1,39 @@
-# Artistic Color Vision Challenge
+# Jack星际先锋 (Star Pioneer)
 
-A high-precision color sensitivity game designed for art students to test and improve their chromatic perception.
+一款快节奏的星际飞行射击游戏，驾驶战机在群星中穿梭，击败敌机。
 
-## Features
-- 5x5 to 7x7 dynamic grid generation.
-- Difficulty scaling based on performance.
-- Real-time statistics (Score, Time).
-- Chromatic analysis visualization.
-- Responsive design for mobile and desktop.
+## 游戏特性
+- **流畅操控**：支持键盘（WASD/方向键）和移动端触摸操作。
+- **动态关卡**：难度随得分提升，敌机生成速度和飞行速度逐渐加快。
+- **视觉特效**：复古科幻风格 UI，动态星空背景，引擎喷火特效。
+- **响应式设计**：完美适配手机、平板及电脑屏幕。
 
-## Deployment to Vercel
+## 部署到 Vercel 指南
 
-1. **Push to GitHub**:
-   - Create a new repository on GitHub.
-   - Initialize git in your local project: `git init`.
-   - Add files: `git add .`.
-   - Commit: `git commit -m "Initial commit"`.
-   - Link to GitHub: `git remote add origin <your-github-repo-url>`.
-   - Push: `git push -u origin main`.
+1. **上传到 GitHub**:
+   - 在 GitHub 上创建一个新仓库。
+   - 在本地项目目录初始化 Git：`git init`。
+   - 添加所有文件：`git add .`。
+   - 提交更改：`git commit -m "Initial commit: Star Pioneer Game"`。
+   - 关联远程仓库：`git remote add origin <你的GitHub仓库URL>`。
+   - 推送代码：`git push -u origin main`。
 
-2. **Deploy on Vercel**:
-   - Go to [Vercel Dashboard](https://vercel.com/dashboard).
-   - Click **"New Project"**.
-   - Import your GitHub repository.
-   - Vercel will automatically detect **Vite** as the framework.
-   - Click **"Deploy"**.
+2. **在 Vercel 上部署**:
+   - 登录 [Vercel 控制台](https://vercel.com/dashboard)。
+   - 点击 **"New Project"**。
+   - 导入你刚刚创建的 GitHub 仓库。
+   - Vercel 会自动识别 **Vite** 框架。
+   - 点击 **"Deploy"** 即可完成部署。
 
-## Local Development
+## 本地开发
 
 ```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Run development server
+# 启动开发服务器
 npm run dev
 
-# Build for production
+# 构建生产版本
 npm run build
 ```
