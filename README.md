@@ -1,11 +1,40 @@
-<div align="center">
+# Artistic Color Vision Challenge
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A high-precision color sensitivity game designed for art students to test and improve their chromatic perception.
 
-  <h1>Built with AI Studio</h2>
+## Features
+- 5x5 to 7x7 dynamic grid generation.
+- Difficulty scaling based on performance.
+- Real-time statistics (Score, Time).
+- Chromatic analysis visualization.
+- Responsive design for mobile and desktop.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Deployment to Vercel
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+1. **Push to GitHub**:
+   - Create a new repository on GitHub.
+   - Initialize git in your local project: `git init`.
+   - Add files: `git add .`.
+   - Commit: `git commit -m "Initial commit"`.
+   - Link to GitHub: `git remote add origin <your-github-repo-url>`.
+   - Push: `git push -u origin main`.
 
-</div>
+2. **Deploy on Vercel**:
+   - Go to [Vercel Dashboard](https://vercel.com/dashboard).
+   - Click **"New Project"**.
+   - Import your GitHub repository.
+   - Vercel will automatically detect **Vite** as the framework.
+   - Click **"Deploy"**.
+
+## Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+```
